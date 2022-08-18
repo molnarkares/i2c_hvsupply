@@ -1,0 +1,103 @@
+@startuml
+package "Pulse counter" as pulsecounter {
+    component TMR3_16 #Green
+    component TMR2_8 #Green
+    component CLC2 #Yellow
+
+    TMR3_16 -> CLC2
+    CLC2 -> TMR2_8
+}
+package "Periodic notification timer" as sectimer {
+    component TMR1_16 #Green
+    component TMR5_16 #Green
+    component CLC1 #Yellow
+    
+    TMR1_16 -> CLC1
+    CLC1 -> PA2
+    PA2 -> TMR5_16
+
+}
+package pwm {
+    component PWM5 #Green
+}
+package "Command processor" as cmd {
+    
+    database registermap
+    node commander
+    component i2c #Green    
+}
+package System {
+    component LFINTOSC #Green
+}
+
+
+interface "PWM output" as RC4
+interface "TRIG" as RC2
+interface "Pulse IN" as RC5 
+interface "Secondary OSC" as RA4_5
+
+interface "SCL" as RA1
+interface "SDA" as RA0
+
+
+TMR1_16 <-- RA4_5
+TMR3_16 <-- RC5
+
+
+RA1 <-up-> i2c
+RA0 <-up-> i2c
+
+PWM5 -down-> RC4
+registermap <-> commander
+i2c <-left-> commander
+commander -down-> RC2
+commander -> pwm
+
+
+note bottom of TMR5_16
+wakes up MCU after a given number of seconds
+end note 
+note bottom of i2c
+wakes up MCU at address match
+end note 
+
+LFINTOSC -> commander
+LFINTOSC -> PWM5
+LFINTOSC -> i2c
+@enduml
+
+@startuml
+start
+if (Connection to Ginkgo sucessful?) then (yes)
+#Cyan: Verify primary I2C connection
+    by reading the default I2C values;
+    if (Values matching default) then(yes)
+#Cyan: Test pulse counter;
+        if (pulse readback matches) then(yes)
+        #Cyan: Test timeout and TRIG pin;
+            if (Timout within 1ms jitter?) then (yes)
+            #Cyan: Calibrate ADC;
+            #Cyan: Write back VADJUST values;
+            #Cyan: Write serial number;
+            #Cyan: Write default values
+            Vout disabled
+            No timeout;
+            else (no)
+            #Crimson:report Error;
+            stop
+        endif
+        else(no)
+#Crimson:report Error;
+        stop
+        endif
+    else(no)
+#Crimson: report Error;
+    stop
+    endif
+else (no)
+#Crimson:report Error;
+  stop
+endif
+end
+
+@enduml
